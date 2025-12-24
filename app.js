@@ -1,8 +1,11 @@
 /* BTX Docs Saúde — Agenda + Documentos (Offline-first)
    - Login simples: btx007
-   - LocalStorage como base (leve, estável)
-   - PDFs por janela de impressão (funciona sem biblioteca)
-   - Backup/restore JSON
+   - LocalStorage (leve, estável, não apaga sozinho)
+   - Agenda em CARDS (não bagunça layout)
+   - Receituário: antibiótico escolhe 1 por vez
+   - PDFs por janela de impressão (sem bibliotecas)
+   - Backup/Restore JSON
+   - Botão "Baixar app" (PWA install prompt)
 */
 
 (function(){
@@ -43,6 +46,12 @@
     if(type) el.classList.add(type);
     el.textContent = text || "";
   };
+  function escapeHtmlLite(s){
+    return String(s||"")
+      .replaceAll("&","&amp;")
+      .replaceAll("<","&lt;")
+      .replaceAll(">","&gt;");
+  }
 
   // ====== ELEMENTOS ======
   const loginView = $("loginView");
@@ -54,6 +63,7 @@
 
   const netPill = $("netPill");
   const btnLogout = $("btnLogout");
+  const btnInstall = $("btnInstall");
 
   const navButtons = Array.from(document.querySelectorAll(".navBtn"));
   const tabs = {
@@ -80,7 +90,7 @@
   const apptNotes = $("apptNotes");
   const btnAddAppt = $("btnAddAppt");
   const btnClearAppt = $("btnClearAppt");
-  const apptTbody = $("apptTbody");
+  const apptList = $("apptList");
   const apptEmpty = $("apptEmpty");
   const agendaRangePill = $("agendaRangePill");
   const searchAppt = $("searchAppt");
@@ -155,8 +165,6 @@
   // ====== ESTADO ======
   let state = {
     viewMode: "day", // day|week
-    rangeStart: null,
-    rangeEnd: null,
     search: ""
   };
 
@@ -167,7 +175,6 @@
     modal.classList.remove("hidden");
   }
   function hideModal(){ modal.classList.add("hidden"); }
-
   modalOk.addEventListener("click", hideModal);
 
   // ====== NETWORK PILL ======
@@ -221,7 +228,7 @@
   });
 
   btnHelpLogin.addEventListener("click", ()=>{
-    showModal("Login", "Digite a chave: btx007 (tudo minúsculo, sem traço). Se você quiser trocar depois, a gente ajusta no código.");
+    showModal("Login", "Digite a chave: btx007 (tudo minúsculo, sem traço).");
   });
 
   btnLogout.addEventListener("click", ()=>{
@@ -235,17 +242,10 @@
     Object.keys(tabs).forEach(k=>tabs[k].classList.toggle("active", k===name));
   }
   navButtons.forEach(btn=>{
-    btn.addEventListener("click", ()=>{
-      setTab(btn.dataset.tab);
-      if(window.innerWidth < 900){
-        // no mobile, dá uma “recolhida” visual
-        sidebar.scrollIntoView({behavior:"smooth", block:"start"});
-      }
-    });
+    btn.addEventListener("click", ()=>setTab(btn.dataset.tab));
   });
 
   btnToggleSidebar.addEventListener("click", ()=>{
-    // Alterna uma sensação de “colapso” simples
     sidebar.classList.toggle("collapsed");
     if(sidebar.classList.contains("collapsed")){
       sidebar.style.maxHeight = "72px";
@@ -315,7 +315,7 @@
   btnResetAll.addEventListener("click", ()=>{
     if(!confirm("Isso apaga agenda e documentos deste aparelho. Continuar?")) return;
     Object.values(LS).forEach(k=>localStorage.removeItem(k));
-    setAuthed(true); // mantém dentro pra não irritar
+    setAuthed(true);
     hydrateAll();
     renderAgenda();
     showModal("Zerado", "Tudo foi apagado neste aparelho.");
@@ -338,6 +338,10 @@
   }
   btnClearAppt.addEventListener("click", clearApptForm);
 
+  function cryptoRandom(){
+    return "A" + Math.random().toString(16).slice(2) + Date.now().toString(16);
+  }
+
   function normalizeAppt(a){
     return {
       id: a.id || cryptoRandom(),
@@ -352,11 +356,6 @@
     };
   }
 
-  function cryptoRandom(){
-    // id simples e confiável
-    return "A" + Math.random().toString(16).slice(2) + Date.now().toString(16);
-  }
-
   btnAddAppt.addEventListener("click", ()=>{
     const a = normalizeAppt({
       date: apptDate.value,
@@ -369,7 +368,7 @@
     });
 
     if(!a.patient){
-      showModal("Faltou paciente", "Coloca pelo menos o nome do paciente pra salvar o agendamento.");
+      showModal("Faltou paciente", "Coloca pelo menos o nome do paciente pra salvar.");
       return;
     }
 
@@ -398,7 +397,7 @@
   function getRangeForMode(){
     const base = apptDate.value ? new Date(apptDate.value+"T00:00:00") : new Date();
     if(state.viewMode === "week"){
-      const day = base.getDay(); // 0 dom
+      const day = base.getDay();
       const diffToMon = (day===0 ? -6 : 1-day);
       const mon = new Date(base);
       mon.setDate(base.getDate()+diffToMon);
@@ -413,8 +412,6 @@
   function setAgendaMode(mode){
     state.viewMode = mode;
     const {start,end} = getRangeForMode();
-    state.rangeStart = start;
-    state.rangeEnd = end;
     agendaRangePill.textContent = mode==="week"
       ? `Semana: ${fmtDateBR(start)} — ${fmtDateBR(end)}`
       : `Dia: ${fmtDateBR(start)}`;
@@ -469,104 +466,88 @@
   function renderAgenda(){
     setAgendaMode(state.viewMode);
     const list = filterAppts(getAppts());
-    apptTbody.innerHTML = "";
+    apptList.innerHTML = "";
 
     if(list.length===0){
       apptEmpty.classList.remove("hidden");
-    }else{
-      apptEmpty.classList.add("hidden");
+      return;
     }
+    apptEmpty.classList.add("hidden");
 
     for(const a of list){
-      const tr = document.createElement("tr");
+      const card = document.createElement("div");
+      card.className = "apptCard";
 
-      const tdDate = document.createElement("td"); tdDate.textContent = fmtDateBR(a.date);
-      const tdTime = document.createElement("td"); tdTime.textContent = a.time || "";
-      const tdPat = document.createElement("td"); tdPat.textContent = a.patient;
-      const tdType = document.createElement("td"); tdType.textContent = a.type || "";
-      const tdStatus = document.createElement("td");
+      card.innerHTML = `
+        <div class="apptTop">
+          <div class="apptLeft">
+            <div class="apptWhen">
+              <span class="apptDate">${fmtDateBR(a.date)}</span>
+              <span class="dot">•</span>
+              <span class="apptTime">${escapeHtmlLite(a.time||"")}</span>
+            </div>
+            <div class="apptPatient">${escapeHtmlLite(a.patient||"")}</div>
+            <div class="apptMeta">
+              <span class="chip">${escapeHtmlLite(a.type||"—")}</span>
+              <span class="chip chipStatus">${escapeHtmlLite(a.status||"")}</span>
+            </div>
+            ${a.notes ? `<div class="apptNotes">${escapeHtmlLite(a.notes)}</div>` : ""}
+          </div>
 
-      const sel = document.createElement("select");
-      ["confirmado","pendente","faltou","remarcado","cancelado"].forEach(v=>{
-        const o = document.createElement("option");
-        o.value=v; o.textContent=v;
-        if(v===a.status) o.selected=true;
-        sel.appendChild(o);
-      });
+          <div class="apptRight">
+            <select class="apptSel">
+              ${["confirmado","pendente","faltou","remarcado","cancelado"].map(v=>`
+                <option value="${v}" ${v===a.status?"selected":""}>${v}</option>
+              `).join("")}
+            </select>
+
+            <button class="btn tiny apptW" ${a.phone ? "" : "disabled"}>WhatsApp</button>
+            <button class="btn tiny ghost apptDel">Excluir</button>
+          </div>
+        </div>
+      `;
+
+      apptList.appendChild(card);
+
+      const sel = card.querySelector(".apptSel");
+      const btnW = card.querySelector(".apptW");
+      const btnDel = card.querySelector(".apptDel");
+
       sel.addEventListener("change", ()=>updateAppt(a.id, {status: sel.value}));
-      tdStatus.appendChild(sel);
 
-      const tdPhone = document.createElement("td");
-      if(a.phone){
-        const link = document.createElement("a");
-        link.href = waLink(a.phone, `Olá ${a.patient}! Confirmando seu horário em ${fmtDateBR(a.date)} às ${a.time}.`);
-        link.target = "_blank";
-        link.rel = "noopener";
-        link.textContent = "WhatsApp";
-        tdPhone.appendChild(link);
-      }else{
-        tdPhone.textContent = "-";
-      }
+      btnW.addEventListener("click", ()=>{
+        if(!a.phone) return;
+        window.open(
+          waLink(a.phone, `Olá ${a.patient}! Confirmando seu horário em ${fmtDateBR(a.date)} às ${a.time}.`),
+          "_blank",
+          "noopener"
+        );
+      });
 
-      const tdAct = document.createElement("td");
-      const btnDel = document.createElement("button");
-      btnDel.className = "btn tiny";
-      btnDel.textContent = "Excluir";
       btnDel.addEventListener("click", ()=>{
         if(confirm("Excluir este agendamento?")) deleteAppt(a.id);
       });
-
-      const btnEdit = document.createElement("button");
-      btnEdit.className = "btn tiny ghost";
-      btnEdit.textContent = "Carregar";
-      btnEdit.addEventListener("click", ()=>{
-        apptDate.value = a.date;
-        apptTime.value = a.time;
-        apptPatient.value = a.patient;
-        apptPhone.value = a.phone || "";
-        apptType.value = a.type || "";
-        apptStatus.value = a.status || "confirmado";
-        apptNotes.value = a.notes || "";
-        showModal("Carregado", "Campos carregados. Se quiser, ajuste e salve como novo agendamento.");
-      });
-
-      tdAct.appendChild(btnEdit);
-      tdAct.appendChild(btnDel);
-
-      tr.appendChild(tdDate);
-      tr.appendChild(tdTime);
-      tr.appendChild(tdPat);
-      tr.appendChild(tdType);
-      tr.appendChild(tdStatus);
-      tr.appendChild(tdPhone);
-      tr.appendChild(tdAct);
-
-      apptTbody.appendChild(tr);
     }
   }
 
   // ====== DOCS — AUTO SAVE ======
   function bindAutoSave(){
-    // ficha
     const fichaInputs = [fichaPaciente,fichaData,fichaIdade,fichaTelefone,fichaQueixa,fichaHDA,fichaAntecedentes,fichaExame,fichaDx,fichaPlano];
     fichaInputs.forEach(el=>{
       el.addEventListener("input", ()=>save(LS.ficha, getFichaData()));
       el.addEventListener("change", ()=>save(LS.ficha, getFichaData()));
     });
 
-    // rx
     [rxPaciente,rxData,rxTexto].forEach(el=>{
       el.addEventListener("input", ()=>save(LS.rx, getRxData()));
       el.addEventListener("change", ()=>save(LS.rx, getRxData()));
     });
 
-    // atestado
     [atPaciente,atData,atDias,atCID,atTexto].forEach(el=>{
       el.addEventListener("input", ()=>save(LS.atestado, getAtestadoData()));
       el.addEventListener("change", ()=>save(LS.atestado, getAtestadoData()));
     });
 
-    // orc
     [orcPaciente,orcData,orcTexto].forEach(el=>{
       el.addEventListener("input", ()=>save(LS.orc, getOrcData()));
       el.addEventListener("change", ()=>save(LS.orc, getOrcData()));
@@ -636,7 +617,7 @@
     orcTexto.value = d.texto||"";
   }
 
-  // ====== RECEITA — PRESETS (inclui antibiótico) ======
+  // ====== RECEITA — PRESETS (antibiótico escolhe 1 por vez) ======
   const RX_PRESETS = {
     analgesico:
 `1) Dipirona 500 mg — 1 comprimido a cada 6/6h se dor, por até 3 dias.
@@ -644,10 +625,11 @@
     antiinflamatorio:
 `1) Ibuprofeno 600 mg — 1 comprimido a cada 8/8h por 3 dias, após alimentação.
 2) Nimesulida 100 mg — 1 comprimido a cada 12/12h por 3 dias (alternativa).`,
-    antibiotico:
-`1) Amoxicilina 500 mg — 1 cápsula a cada 8/8h por 7 dias.
-2) Amoxicilina + Clavulanato 875/125 mg — 1 comprimido a cada 12/12h por 7 dias (se indicado).
-3) Clindamicina 300 mg — 1 cápsula a cada 6/6h por 7 dias (alérgicos a penicilina, se indicado).`,
+    antibiotico: {
+      "Amoxicilina 500 mg": "1) Amoxicilina 500 mg — 1 cápsula a cada 8/8h por 7 dias.",
+      "Amoxicilina + Clavulanato 875/125 mg": "1) Amoxicilina + Clavulanato 875/125 mg — 1 comprimido a cada 12/12h por 7 dias (se indicado).",
+      "Clindamicina 300 mg": "1) Clindamicina 300 mg — 1 cápsula a cada 6/6h por 7 dias (alérgicos a penicilina, se indicado)."
+    },
     antifungico:
 `1) Nistatina suspensão — 5 mL 4x/dia por 7–14 dias (conforme avaliação).
 2) Fluconazol 150 mg — dose única (quando indicado).`
@@ -656,6 +638,27 @@
   document.querySelectorAll("[data-rx]").forEach(btn=>{
     btn.addEventListener("click", ()=>{
       const k = btn.getAttribute("data-rx");
+
+      if(k === "antibiotico"){
+        const opts = RX_PRESETS.antibiotico || {};
+        const names = Object.keys(opts);
+        if(!names.length) return;
+
+        const choice = prompt(
+          "Escolha o antibiótico digitando o número:\n" +
+          names.map((n,i)=>`${i+1}) ${n}`).join("\n")
+        );
+
+        const idx = Number(choice) - 1;
+        if(Number.isNaN(idx) || idx < 0 || idx >= names.length) return;
+
+        const add = opts[names[idx]];
+        const cur = rxTexto.value ? rxTexto.value.trim()+"\n\n" : "";
+        rxTexto.value = cur + add;
+        save(LS.rx, getRxData());
+        return;
+      }
+
       const add = RX_PRESETS[k] || "";
       const cur = rxTexto.value ? rxTexto.value.trim()+"\n\n" : "";
       rxTexto.value = cur + add;
@@ -686,10 +689,19 @@
   });
 
   // ====== PDF ENGINE (print) ======
+  function escapeHtml(s){
+    return String(s||"")
+      .replaceAll("&","&amp;")
+      .replaceAll("<","&lt;")
+      .replaceAll(">","&gt;")
+      .replaceAll('"',"&quot;")
+      .replaceAll("'","&#039;");
+  }
+
   function openPrintWindow(title, html){
     const w = window.open("", "_blank");
     if(!w){
-      showModal("Bloqueado", "Seu navegador bloqueou a janela do PDF. Libera pop-up pra este app.");
+      showModal("Bloqueado", "Seu navegador bloqueou o PDF. Libere pop-up pra este app.");
       return;
     }
 
@@ -709,7 +721,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
 <title>${escapeHtml(title)}</title>
 <style>
-  :root{ --text:#111; --muted:#444; --accent:#0fbf74; }
+  :root{ --text:#111; --muted:#444; }
   body{ font-family: Arial, sans-serif; margin:24px; color:var(--text); }
   .head{ display:flex; justify-content:space-between; align-items:flex-start; gap:14px; border-bottom:2px solid #0fbf74; padding-bottom:10px; margin-bottom:14px; }
   .brand{ font-weight:900; font-size:18px; }
@@ -722,10 +734,7 @@
   .pdfFooter{ margin-top:18px; border-top:1px solid #ddd; padding-top:10px; font-size:12px; color:#111; }
   .table{ width:100%; border-collapse:collapse; margin-top:10px; }
   .table th,.table td{ border-bottom:1px solid #eee; padding:8px 6px; font-size:12px; text-align:left; }
-  @media print{
-    button{ display:none; }
-    body{ margin:18px; }
-  }
+  @media print{ body{ margin:18px; } }
 </style>
 </head><body>
 <div class="head">
@@ -740,23 +749,11 @@ ${html}
 
 ${footer}
 
-<script>
-  window.onload = ()=>{ window.print(); };
-</script>
+<script>window.onload=()=>{ window.print(); };</script>
 </body></html>`);
     w.document.close();
   }
 
-  function escapeHtml(s){
-    return String(s||"")
-      .replaceAll("&","&amp;")
-      .replaceAll("<","&lt;")
-      .replaceAll(">","&gt;")
-      .replaceAll('"',"&quot;")
-      .replaceAll("'","&#039;");
-  }
-
-  // PDFs — Agenda
   function buildAgendaTable(list){
     if(!list.length) return `<div class="box">Nenhum agendamento encontrado.</div>`;
     const rows = list.map(a=>{
@@ -809,7 +806,6 @@ ${footer}
     openPrintWindow(title, buildAgendaTable(list));
   });
 
-  // PDFs — Docs
   btnFichaPdf.addEventListener("click", ()=>{
     const d = getFichaData();
     const html = `
@@ -952,13 +948,72 @@ ${footer}
   btnInstallHint.addEventListener("click", ()=>{
     showModal(
       "Instalar no celular",
-      "No Android: abra no Chrome → menu ⋮ → 'Instalar app' ou 'Adicionar à tela inicial'. Depois ele roda offline."
+      "Android: abra no Chrome → menu ⋮ → “Instalar app” / “Adicionar à tela inicial”. Depois roda offline."
     );
   });
 
   btnTestPdf.addEventListener("click", ()=>{
-    openPrintWindow("Teste PDF", `<div class="box">Se isso abriu e imprimiu/salvou em PDF, tá tudo certo ✅</div>`);
+    openPrintWindow("Teste PDF", `<div class="box">Se abriu e imprimiu/salvou em PDF, tá tudo certo ✅</div>`);
   });
+
+  // ====== PWA REGISTER ======
+  async function registerSW(){
+    if(!("serviceWorker" in navigator)) return;
+    try{
+      await navigator.serviceWorker.register("./sw.js");
+    }catch(err){
+      console.warn("SW error:", err);
+    }
+  }
+
+  // ====== PWA INSTALL (botão "Baixar app") ======
+  let deferredInstallPrompt = null;
+
+  window.addEventListener("beforeinstallprompt", (e) => {
+    e.preventDefault();
+    deferredInstallPrompt = e;
+    if(btnInstall){
+      btnInstall.disabled = false;
+      btnInstall.textContent = "Baixar app";
+    }
+  });
+
+  if(btnInstall){
+    btnInstall.disabled = true; // habilita quando o browser liberar
+    btnInstall.textContent = "Baixar app";
+
+    btnInstall.addEventListener("click", async () => {
+      if(!deferredInstallPrompt){
+        showModal(
+          "Instalar",
+          "Se não apareceu o instalador automático, use: Chrome/Edge → menu ⋮ → “Instalar app” / “Adicionar à tela inicial”."
+        );
+        return;
+      }
+
+      deferredInstallPrompt.prompt();
+      const choice = await deferredInstallPrompt.userChoice;
+      deferredInstallPrompt = null;
+
+      if(choice && choice.outcome === "accepted"){
+        showModal("Instalado", "Pronto. Agora ele roda como app e funciona offline ✅");
+      }else{
+        showModal("Tudo bem", "Instala quando você quiser.");
+      }
+    });
+  }
+
+  // ====== AUTO TEXTO ATESTADO ======
+  function autoAtestadoText(){
+    const p = (atPaciente.value||"").trim();
+    const d = (atDias.value||"").trim();
+    if(!atTexto.value.trim()){
+      atTexto.value = `Atesto para os devidos fins que ${p || "o(a) paciente"} esteve em atendimento nesta data, necessitando afastamento por ${d || "__"} dia(s).`;
+      save(LS.atestado, getAtestadoData());
+    }
+  }
+  atPaciente.addEventListener("input", autoAtestadoText);
+  atDias.addEventListener("input", autoAtestadoText);
 
   // ====== HYDRATE ======
   function hydrateDocs(){
@@ -974,17 +1029,6 @@ ${footer}
     hydrateDocs();
   }
 
-  // ====== PWA REGISTER ======
-  async function registerSW(){
-    if(!("serviceWorker" in navigator)) return;
-    try{
-      await navigator.serviceWorker.register("./sw.js");
-    }catch(err){
-      // não trava o app por causa disso
-      console.warn("SW error:", err);
-    }
-  }
-
   // ====== INIT ======
   function init(){
     refreshNet();
@@ -993,31 +1037,17 @@ ${footer}
     setAgendaMode("day");
     refreshFooter();
 
-    // auto auth
     if(isAuthed()){
       goApp();
     }else{
       goLogin();
     }
 
-    // Relógio
     tick();
     setInterval(tick, 10000);
 
     registerSW();
   }
-
-  // auto preencher texto do atestado quando muda paciente/dias
-  function autoAtestadoText(){
-    const p = (atPaciente.value||"").trim();
-    const d = (atDias.value||"").trim();
-    if(!atTexto.value.trim()){
-      atTexto.value = `Atesto para os devidos fins que ${p || "o(a) paciente"} esteve em atendimento nesta data, necessitando afastamento por ${d || "__"} dia(s).`;
-      save(LS.atestado, getAtestadoData());
-    }
-  }
-  atPaciente.addEventListener("input", autoAtestadoText);
-  atDias.addEventListener("input", autoAtestadoText);
 
   init();
 
