@@ -49,6 +49,7 @@
       </div>
 
       <div class="topActions">
+        <button id="btnInstall" class="btn primary" type="button">Baixar app</button>
         <button id="btnBackup" class="btn ghost" type="button">Backup</button>
         <button id="btnRestore" class="btn ghost" type="button">Restaurar</button>
         <button id="btnLogout" class="btn danger" type="button">Sair</button>
@@ -74,7 +75,7 @@
 
         <div class="sidebarFoot">
           <div class="miniNote">Salvamento local automático</div>
-          <div class="miniNote">PDF no botão “Gerar PDF”</div>
+          <div class="miniNote">Backup/Restaurar pra segurança</div>
         </div>
       </aside>
 
@@ -84,7 +85,7 @@
         <section class="tab active" id="tab-agenda">
           <div class="tabTitleRow">
             <h1>Agenda</h1>
-            <div class="row gap">
+            <div class="row gap wrap">
               <button id="btnToday" class="btn primary" type="button">Hoje</button>
               <button id="btnWeek" class="btn" type="button">Semana</button>
               <button id="btnMonthPdf" class="btn" type="button">PDF do Mês</button>
@@ -107,7 +108,7 @@
               </div>
               <div class="field">
                 <label for="apptPhone">WhatsApp (opcional)</label>
-                <input id="apptPhone" type="tel" placeholder="Ex: 5591980..." />
+                <input id="apptPhone" type="tel" placeholder="Ex: 5591..." />
               </div>
               <div class="field">
                 <label for="apptType">Tipo</label>
@@ -130,7 +131,7 @@
               <textarea id="apptNotes" rows="3" placeholder="Detalhes do atendimento..."></textarea>
             </div>
 
-            <div class="row gap">
+            <div class="row gap wrap">
               <button id="btnAddAppt" class="btn primary" type="button">Salvar Agendamento</button>
               <button id="btnClearAppt" class="btn ghost" type="button">Limpar</button>
               <div class="spacer"></div>
@@ -139,29 +140,14 @@
           </div>
 
           <div class="card">
-            <div class="row">
+            <div class="row wrap gap">
               <div class="pill" id="agendaRangePill">…</div>
               <div class="spacer"></div>
               <button id="btnDayPdf" class="btn" type="button">PDF do Dia</button>
               <button id="btnWeekPdf" class="btn" type="button">PDF da Semana</button>
             </div>
 
-            <div class="tableWrap">
-              <table class="table">
-                <thead>
-                  <tr>
-                    <th>Data</th>
-                    <th>Hora</th>
-                    <th>Paciente</th>
-                    <th>Tipo</th>
-                    <th>Status</th>
-                    <th>WhatsApp</th>
-                    <th>Ações</th>
-                  </tr>
-                </thead>
-                <tbody id="apptTbody"></tbody>
-              </table>
-            </div>
+            <div id="apptList" class="apptList"></div>
 
             <div id="apptEmpty" class="empty hidden">
               Nenhum agendamento nesse período.
@@ -173,7 +159,7 @@
         <section class="tab" id="tab-ficha">
           <div class="tabTitleRow">
             <h1>Ficha Clínica</h1>
-            <div class="row gap">
+            <div class="row gap wrap">
               <button class="btn" id="btnFichaPdf" type="button">Gerar PDF</button>
               <button class="btn ghost" id="btnFichaClear" type="button">Limpar</button>
             </div>
@@ -237,7 +223,7 @@
         <section class="tab" id="tab-receita">
           <div class="tabTitleRow">
             <h1>Receituário</h1>
-            <div class="row gap">
+            <div class="row gap wrap">
               <button class="btn" id="btnReceitaPdf" type="button">Gerar PDF</button>
               <button class="btn ghost" id="btnReceitaClear" type="button">Limpar</button>
             </div>
@@ -259,7 +245,7 @@
               <label>Texto do receituário</label>
               <textarea id="rxTexto" rows="10" placeholder="1) Medicamento — posologia...
 2) ..."></textarea>
-              <div class="hint">Pode colar aqui o que você quiser. É o jeito mais estável e rápido.</div>
+              <div class="hint">Botões rápidos abaixo (antibiótico escolhe 1 por vez).</div>
             </div>
 
             <div class="row gap wrap">
@@ -275,7 +261,7 @@
         <section class="tab" id="tab-atestado">
           <div class="tabTitleRow">
             <h1>Atestado</h1>
-            <div class="row gap">
+            <div class="row gap wrap">
               <button class="btn" id="btnAtestadoPdf" type="button">Gerar PDF</button>
               <button class="btn ghost" id="btnAtestadoClear" type="button">Limpar</button>
             </div>
@@ -312,7 +298,7 @@
         <section class="tab" id="tab-orcamento">
           <div class="tabTitleRow">
             <h1>Orçamento</h1>
-            <div class="row gap">
+            <div class="row gap wrap">
               <button class="btn" id="btnOrcPdf" type="button">Gerar PDF</button>
               <button class="btn ghost" id="btnOrcClear" type="button">Limpar</button>
             </div>
@@ -336,7 +322,7 @@
 - Restauração resina (dente 11) — R$ ...
 - Profilaxia — R$ ...
 Forma de pagamento: ..."></textarea>
-              <div class="hint">Aqui não tem soma automática (do jeito que você pediu). Só texto livre, bem estável.</div>
+              <div class="hint">Sem soma automática (estável e vendável).</div>
             </div>
           </div>
         </section>
@@ -345,7 +331,7 @@ Forma de pagamento: ..."></textarea>
         <section class="tab" id="tab-config">
           <div class="tabTitleRow">
             <h1>Configurações</h1>
-            <div class="row gap">
+            <div class="row gap wrap">
               <button class="btn" id="btnSaveProf" type="button">Salvar</button>
               <button class="btn ghost" id="btnResetAll" type="button">Zerar tudo</button>
             </div>
