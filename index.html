@@ -1,0 +1,420 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#0fbf74" />
+  <title>BTX Docs Saúde — Agenda + Documentos</title>
+
+  <link rel="manifest" href="manifest.json" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+
+<body>
+  <!-- ======= LOGIN ======= -->
+  <div id="loginView" class="screen">
+    <div class="card loginCard">
+      <div class="brandRow">
+        <div class="brandMark">⬢</div>
+        <div>
+          <div class="brandTitle">BTX Docs Saúde</div>
+          <div class="brandSub">Agenda + Documentos • Offline-first</div>
+        </div>
+      </div>
+
+      <div class="divider"></div>
+
+      <div class="field">
+        <label for="loginKey">Chave de acesso</label>
+        <input id="loginKey" type="password" placeholder="Ex: btx007" autocomplete="off" />
+        <div class="hint">Dica: tudo minúsculo, sem traço. Padrão: <b>btx007</b></div>
+      </div>
+
+      <div class="row">
+        <button id="btnLogin" class="btn primary">Entrar</button>
+        <button id="btnHelpLogin" class="btn ghost" type="button">Ajuda</button>
+      </div>
+
+      <div id="loginMsg" class="msg"></div>
+    </div>
+  </div>
+
+  <!-- ======= APP ======= -->
+  <div id="appView" class="screen hidden">
+    <header class="topbar">
+      <div class="brandMini">
+        <span class="brandMark small">⬢</span>
+        <span class="brandTitleMini">BTX Docs</span>
+        <span class="statusPill" id="netPill">…</span>
+      </div>
+
+      <div class="topActions">
+        <button id="btnBackup" class="btn ghost" type="button">Backup</button>
+        <button id="btnRestore" class="btn ghost" type="button">Restaurar</button>
+        <button id="btnLogout" class="btn danger" type="button">Sair</button>
+      </div>
+    </header>
+
+    <main class="layout">
+      <!-- Sidebar -->
+      <aside class="sidebar" id="sidebar">
+        <div class="sidebarHead">
+          <div class="sidebarTitle">Navegação</div>
+          <button id="btnToggleSidebar" class="btn ghost tiny" type="button">☰</button>
+        </div>
+
+        <div class="nav">
+          <button class="navBtn active" data-tab="agenda">Agenda</button>
+          <button class="navBtn" data-tab="ficha">Ficha Clínica</button>
+          <button class="navBtn" data-tab="receita">Receituário</button>
+          <button class="navBtn" data-tab="atestado">Atestado</button>
+          <button class="navBtn" data-tab="orcamento">Orçamento</button>
+          <button class="navBtn" data-tab="config">Configurações</button>
+        </div>
+
+        <div class="sidebarFoot">
+          <div class="miniNote">Salvamento local automático</div>
+          <div class="miniNote">PDF no botão “Gerar PDF”</div>
+        </div>
+      </aside>
+
+      <!-- Content -->
+      <section class="content">
+        <!-- ======= AGENDA ======= -->
+        <section class="tab active" id="tab-agenda">
+          <div class="tabTitleRow">
+            <h1>Agenda</h1>
+            <div class="row gap">
+              <button id="btnToday" class="btn primary" type="button">Hoje</button>
+              <button id="btnWeek" class="btn" type="button">Semana</button>
+              <button id="btnMonthPdf" class="btn" type="button">PDF do Mês</button>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="grid2">
+              <div class="field">
+                <label for="apptDate">Data</label>
+                <input id="apptDate" type="date" />
+              </div>
+              <div class="field">
+                <label for="apptTime">Hora</label>
+                <input id="apptTime" type="time" />
+              </div>
+              <div class="field">
+                <label for="apptPatient">Paciente</label>
+                <input id="apptPatient" type="text" placeholder="Nome do paciente" />
+              </div>
+              <div class="field">
+                <label for="apptPhone">WhatsApp (opcional)</label>
+                <input id="apptPhone" type="tel" placeholder="Ex: 5591980..." />
+              </div>
+              <div class="field">
+                <label for="apptType">Tipo</label>
+                <input id="apptType" type="text" placeholder="Consulta, retorno, procedimento..." />
+              </div>
+              <div class="field">
+                <label for="apptStatus">Status</label>
+                <select id="apptStatus">
+                  <option value="confirmado">Confirmado</option>
+                  <option value="pendente">Pendente</option>
+                  <option value="faltou">Faltou</option>
+                  <option value="remarcado">Remarcado</option>
+                  <option value="cancelado">Cancelado</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="field">
+              <label for="apptNotes">Observações</label>
+              <textarea id="apptNotes" rows="3" placeholder="Detalhes do atendimento..."></textarea>
+            </div>
+
+            <div class="row gap">
+              <button id="btnAddAppt" class="btn primary" type="button">Salvar Agendamento</button>
+              <button id="btnClearAppt" class="btn ghost" type="button">Limpar</button>
+              <div class="spacer"></div>
+              <input id="searchAppt" class="search" type="search" placeholder="Buscar na agenda..." />
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="row">
+              <div class="pill" id="agendaRangePill">…</div>
+              <div class="spacer"></div>
+              <button id="btnDayPdf" class="btn" type="button">PDF do Dia</button>
+              <button id="btnWeekPdf" class="btn" type="button">PDF da Semana</button>
+            </div>
+
+            <div class="tableWrap">
+              <table class="table">
+                <thead>
+                  <tr>
+                    <th>Data</th>
+                    <th>Hora</th>
+                    <th>Paciente</th>
+                    <th>Tipo</th>
+                    <th>Status</th>
+                    <th>WhatsApp</th>
+                    <th>Ações</th>
+                  </tr>
+                </thead>
+                <tbody id="apptTbody"></tbody>
+              </table>
+            </div>
+
+            <div id="apptEmpty" class="empty hidden">
+              Nenhum agendamento nesse período.
+            </div>
+          </div>
+        </section>
+
+        <!-- ======= FICHA ======= -->
+        <section class="tab" id="tab-ficha">
+          <div class="tabTitleRow">
+            <h1>Ficha Clínica</h1>
+            <div class="row gap">
+              <button class="btn" id="btnFichaPdf" type="button">Gerar PDF</button>
+              <button class="btn ghost" id="btnFichaClear" type="button">Limpar</button>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="grid2">
+              <div class="field">
+                <label>Paciente</label>
+                <input id="fichaPaciente" type="text" placeholder="Nome completo" />
+              </div>
+              <div class="field">
+                <label>Data</label>
+                <input id="fichaData" type="date" />
+              </div>
+              <div class="field">
+                <label>Idade</label>
+                <input id="fichaIdade" type="number" min="0" placeholder="Ex: 35" />
+              </div>
+              <div class="field">
+                <label>Telefone</label>
+                <input id="fichaTelefone" type="tel" placeholder="WhatsApp / telefone" />
+              </div>
+            </div>
+
+            <div class="field">
+              <label>Queixa principal</label>
+              <textarea id="fichaQueixa" rows="3"></textarea>
+            </div>
+
+            <div class="grid2">
+              <div class="field">
+                <label>História da doença atual</label>
+                <textarea id="fichaHDA" rows="4"></textarea>
+              </div>
+              <div class="field">
+                <label>Antecedentes / Medicações</label>
+                <textarea id="fichaAntecedentes" rows="4"></textarea>
+              </div>
+            </div>
+
+            <div class="grid2">
+              <div class="field">
+                <label>Exame físico / Odontológico</label>
+                <textarea id="fichaExame" rows="4"></textarea>
+              </div>
+              <div class="field">
+                <label>Hipóteses / Diagnóstico</label>
+                <textarea id="fichaDx" rows="4"></textarea>
+              </div>
+            </div>
+
+            <div class="field">
+              <label>Conduta / Plano</label>
+              <textarea id="fichaPlano" rows="4"></textarea>
+            </div>
+          </div>
+        </section>
+
+        <!-- ======= RECEITA ======= -->
+        <section class="tab" id="tab-receita">
+          <div class="tabTitleRow">
+            <h1>Receituário</h1>
+            <div class="row gap">
+              <button class="btn" id="btnReceitaPdf" type="button">Gerar PDF</button>
+              <button class="btn ghost" id="btnReceitaClear" type="button">Limpar</button>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="grid2">
+              <div class="field">
+                <label>Paciente</label>
+                <input id="rxPaciente" type="text" placeholder="Nome do paciente" />
+              </div>
+              <div class="field">
+                <label>Data</label>
+                <input id="rxData" type="date" />
+              </div>
+            </div>
+
+            <div class="field">
+              <label>Texto do receituário</label>
+              <textarea id="rxTexto" rows="10" placeholder="1) Medicamento — posologia...
+2) ..."></textarea>
+              <div class="hint">Pode colar aqui o que você quiser. É o jeito mais estável e rápido.</div>
+            </div>
+
+            <div class="row gap wrap">
+              <button class="btn tiny" type="button" data-rx="analgesico">+ Analgésico</button>
+              <button class="btn tiny" type="button" data-rx="antiinflamatorio">+ Anti-inflamatório</button>
+              <button class="btn tiny" type="button" data-rx="antibiotico">+ Antibiótico</button>
+              <button class="btn tiny" type="button" data-rx="antifungico">+ Antifúngico</button>
+            </div>
+          </div>
+        </section>
+
+        <!-- ======= ATESTADO ======= -->
+        <section class="tab" id="tab-atestado">
+          <div class="tabTitleRow">
+            <h1>Atestado</h1>
+            <div class="row gap">
+              <button class="btn" id="btnAtestadoPdf" type="button">Gerar PDF</button>
+              <button class="btn ghost" id="btnAtestadoClear" type="button">Limpar</button>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="grid2">
+              <div class="field">
+                <label>Paciente</label>
+                <input id="atPaciente" type="text" />
+              </div>
+              <div class="field">
+                <label>Data</label>
+                <input id="atData" type="date" />
+              </div>
+              <div class="field">
+                <label>Dias de afastamento</label>
+                <input id="atDias" type="number" min="0" placeholder="Ex: 2" />
+              </div>
+              <div class="field">
+                <label>CID (opcional)</label>
+                <input id="atCID" type="text" placeholder="Ex: K08..." />
+              </div>
+            </div>
+
+            <div class="field">
+              <label>Texto</label>
+              <textarea id="atTexto" rows="6" placeholder="Atesto para os devidos fins que..."></textarea>
+            </div>
+          </div>
+        </section>
+
+        <!-- ======= ORÇAMENTO ======= -->
+        <section class="tab" id="tab-orcamento">
+          <div class="tabTitleRow">
+            <h1>Orçamento</h1>
+            <div class="row gap">
+              <button class="btn" id="btnOrcPdf" type="button">Gerar PDF</button>
+              <button class="btn ghost" id="btnOrcClear" type="button">Limpar</button>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="grid2">
+              <div class="field">
+                <label>Paciente</label>
+                <input id="orcPaciente" type="text" placeholder="Nome do paciente" />
+              </div>
+              <div class="field">
+                <label>Data</label>
+                <input id="orcData" type="date" />
+              </div>
+            </div>
+
+            <div class="field">
+              <label>Itens / Valores (texto livre)</label>
+              <textarea id="orcTexto" rows="10" placeholder="Ex:
+- Restauração resina (dente 11) — R$ ...
+- Profilaxia — R$ ...
+Forma de pagamento: ..."></textarea>
+              <div class="hint">Aqui não tem soma automática (do jeito que você pediu). Só texto livre, bem estável.</div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ======= CONFIG ======= -->
+        <section class="tab" id="tab-config">
+          <div class="tabTitleRow">
+            <h1>Configurações</h1>
+            <div class="row gap">
+              <button class="btn" id="btnSaveProf" type="button">Salvar</button>
+              <button class="btn ghost" id="btnResetAll" type="button">Zerar tudo</button>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="grid2">
+              <div class="field">
+                <label>Profissional</label>
+                <input id="profNome" type="text" placeholder="Seu nome" />
+              </div>
+              <div class="field">
+                <label>Registro</label>
+                <input id="profReg" type="text" placeholder="CRO/CRM/CRFa..." />
+              </div>
+              <div class="field">
+                <label>Telefone</label>
+                <input id="profFone" type="tel" placeholder="WhatsApp" />
+              </div>
+              <div class="field">
+                <label>Email</label>
+                <input id="profEmail" type="email" placeholder="email@..." />
+              </div>
+            </div>
+
+            <div class="field">
+              <label>Endereço (vai no rodapé de TODOS os PDFs)</label>
+              <input id="profEndereco" type="text" placeholder="Rua, número, bairro, cidade/UF" />
+            </div>
+
+            <div class="field">
+              <label>Observação padrão (opcional)</label>
+              <input id="profObs" type="text" placeholder="Ex: Atendimento particular • Horários..." />
+            </div>
+
+            <div class="divider"></div>
+
+            <div class="row wrap gap">
+              <button id="btnInstallHint" class="btn" type="button">Como instalar no celular</button>
+              <button id="btnTestPdf" class="btn" type="button">Testar PDF rápido</button>
+            </div>
+
+            <div id="cfgMsg" class="msg"></div>
+          </div>
+        </section>
+
+        <footer class="footer">
+          <div class="footLeft">
+            <span class="badge">BTX</span>
+            <span id="footLine">Documentos Clínicos • Endereço no PDF</span>
+          </div>
+          <div class="footRight" id="clock">…</div>
+        </footer>
+      </section>
+    </main>
+
+    <!-- Modal simples -->
+    <div id="modal" class="modal hidden">
+      <div class="modalCard">
+        <div class="modalTitle" id="modalTitle">Título</div>
+        <div class="modalBody" id="modalBody">Conteúdo</div>
+        <div class="row">
+          <div class="spacer"></div>
+          <button class="btn primary" id="modalOk" type="button">OK</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
