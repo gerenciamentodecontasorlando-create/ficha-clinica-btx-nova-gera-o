@@ -1,7 +1,7 @@
 /* Service Worker — BTX Docs Saúde
-   Cache simples e confiável (offline-first).
+   Offline-first simples e confiável.
 */
-const CACHE_NAME = "btx-docs-v1";
+const CACHE_NAME = "btx-docs-v3";
 const ASSETS = [
   "./",
   "./index.html",
